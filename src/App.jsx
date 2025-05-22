@@ -11,11 +11,13 @@ const getGenderClass = sex => {
 };
 
 const getCategoryIcon = category => {
-  return `${category.icon} - ${category.name}`;
+  return `${category.icon} - ${category.title}`;
 };
 
 export const App = () => {
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
 
   const products = useMemo(() => {
     return productsFromServer.map(product => {
@@ -29,10 +31,27 @@ export const App = () => {
   }, []);
 
   const visibleProducts = useMemo(() => {
-    return selectedUserId
-      ? products.filter(product => product.user?.id === selectedUserId)
-      : products;
-  }, [products, selectedUserId]);
+    return products.filter(product => {
+      const matchesUser =
+        selectedUserId === null || product.user?.id === selectedUserId;
+
+      const matchesSearch = product.name
+        .toLowerCase()
+        .includes(searchText.toLowerCase());
+
+      const matchesCategory =
+        selectedCategoryId === null ||
+        product.category?.id === selectedCategoryId;
+
+      return matchesUser && matchesSearch && matchesCategory;
+    });
+  }, [products, selectedUserId, searchText, selectedCategoryId]);
+
+  const resetFilters = () => {
+    setSelectedUserId(null);
+    setSearchText('');
+    setSelectedCategoryId(null);
+  };
 
   return (
     <div className="section">
@@ -73,21 +92,24 @@ export const App = () => {
                   type="text"
                   className="input"
                   placeholder="Search"
-                  value="Serch"
+                  value={searchText}
+                  onChange={e => setSearchText(e.target.value)}
                 />
 
                 <span className="icon is-left">
                   <i className="fas fa-search" aria-hidden="true" />
                 </span>
 
-                <span className="icon is-right">
-                  {/* eslint-disable-next-line jsx-a11y/control-has-associated-label */}
-                  <button
-                    data-cy="ClearButton"
-                    type="button"
-                    className="delete"
-                  />
-                </span>
+                {searchText && (
+                  <span className="icon is-right">
+                    <button
+                      data-cy="ClearButton"
+                      type="button"
+                      className="delete"
+                      onClick={() => setSearchText('')}
+                    />
+                  </span>
+                )}
               </p>
             </div>
 
@@ -95,39 +117,34 @@ export const App = () => {
               <a
                 href="#/"
                 data-cy="AllCategories"
-                className="button is-success mr-6 is-outlined"
+                onClick={() => setSelectedCategoryId(null)}
+                className={`button is-outlined mr-6 my-1 ${
+                  selectedCategoryId === null ? 'is-success' : ''
+                }`}
               >
                 All
               </a>
 
-              <a
-                data-cy="Category"
-                className="button mr-2 my-1 is-info"
-                href="#/"
-              >
-                Category 1
-              </a>
-
-              <a data-cy="Category" className="button mr-2 my-1" href="#/">
-                Category 2
-              </a>
-
-              <a
-                data-cy="Category"
-                className="button mr-2 my-1 is-info"
-                href="#/"
-              >
-                Category 3
-              </a>
-              <a data-cy="Category" className="button mr-2 my-1" href="#/">
-                Category 4
-              </a>
+              {categoriesFromServer.map(category => (
+                <a
+                  key={category.id}
+                  data-cy="Category"
+                  href="#/"
+                  onClick={() => setSelectedCategoryId(category.id)}
+                  className={`button is-outlined mr-2 my-1 ${
+                    selectedCategoryId === category.id ? 'is-info' : ''
+                  }`}
+                >
+                  {category.title}
+                </a>
+              ))}
             </div>
 
             <div className="panel-block">
               <a
                 data-cy="ResetAllButton"
                 href="#/"
+                onClick={resetFilters}
                 className="button is-link is-outlined is-fullwidth"
               >
                 Reset all filters
@@ -137,89 +154,52 @@ export const App = () => {
         </div>
 
         <div className="box table-container">
-          {products.length === 0 ? (
+          {visibleProducts.length === 0 && (
             <p data-cy="NoMatchingMessage">
               No products matching selected criteria
             </p>
-          ) : null}
+          )}
 
-          <table
-            data-cy="ProductTable"
-            className="table is-striped is-narrow is-fullwidth"
-          >
-            <thead>
-              <tr>
-                <th>
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    ID
-                    <a href="#/">
-                      <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort" />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th>
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    Product
-                    <a href="#/">
-                      <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort-down" />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th>
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    Category
-                    <a href="#/">
-                      <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort-up" />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th>
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    User
-                    <a href="#/">
-                      <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort" />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {visibleProducts.map(product => (
-                <tr key={product.id} data-cy="Product">
-                  <td className="has-text-weight-bold" data-cy="ProductId">
-                    {product.id}
-                  </td>
-
-                  <td data-cy="ProductName">{product.name}</td>
-
-                  <td data-cy="ProductCategory">
-                    {product.category
-                      ? getCategoryIcon(product.category)
-                      : 'No  category'}
-                  </td>
-
-                  <td
-                    data-cy="ProductUser"
-                    className={getGenderClass(product.user?.sex)}
-                  >
-                    {product.user?.name || 'No user'}
-                  </td>
+          {visibleProducts.length > 0 && (
+            <table
+              data-cy="ProductTable"
+              className="table is-striped is-narrow is-fullwidth"
+            >
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>User</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {visibleProducts.map(product => (
+                  <tr key={product.id} data-cy="Product">
+                    <td className="has-text-weight-bold" data-cy="ProductId">
+                      {product.id}
+                    </td>
+
+                    <td data-cy="ProductName">{product.name}</td>
+
+                    <td data-cy="ProductCategory">
+                      {product.category
+                        ? getCategoryIcon(product.category)
+                        : 'No category'}
+                    </td>
+
+                    <td
+                      data-cy="ProductUser"
+                      className={getGenderClass(product.user?.sex)}
+                    >
+                      {product.user?.name || 'No user'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
